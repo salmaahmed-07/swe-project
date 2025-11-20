@@ -1,8 +1,8 @@
-// Sample data
+// Sample Data
 let orders = [
-    { id: "ORD-001", customer: "John Doe", items: 3, total: "E£89.50", status: "Completed", date: "2024-01-15" },
-    { id: "ORD-002", customer: "Jane Smith", items: 2, total: "E£45.00", status: "Pending", date: "2024-01-20" },
-    { id: "ORD-003", customer: "Mike Johnson", items: 5, total: "E£156.75", status: "Shipped", date: "2024-01-22" }
+    { id: "ORD-001", customer: "John Doe", items: 3, total: 89.50, status: "Completed", date: "2024-01-15" },
+    { id: "ORD-002", customer: "Jane Smith", items: 2, total: 45.00, status: "Pending", date: "2024-01-20" },
+    { id: "ORD-003", customer: "Mike Johnson", items: 5, total: 156.75, status: "Shipped", date: "2024-01-22" }
 ];
 
 let users = [
@@ -12,21 +12,21 @@ let users = [
 ];
 
 let menuItems = [
-    { id: "MENU-001", name: "Cappuccino", category: "Coffee", price: "E£25", availability: "Available" },
-    { id: "MENU-002", name: "Cheeseburger", category: "Fast Food", price: "E£40", availability: "Out of Stock" }
+    { id: "MENU-001", name: "Cappuccino", category: "Coffee", price: 25, availability: "Available" },
+    { id: "MENU-002", name: "Cheeseburger", category: "Fast Food", price: 40, availability: "Out of Stock" }
 ];
 
 // Page Navigation
-function showPage(page) {
+function showPage(page, event) {
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
     document.getElementById(`${page}-page`).style.display = 'block';
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    if(event) event.currentTarget.classList.add('active');
 
     if (page === 'orders') { renderOrders(); updateOrderStats(); }
     else if (page === 'users') { renderUsers(); updateUserStats(); }
     else if (page === 'menu') { renderMenu(); updateMenuStats(); }
-    else if (page === 'reports') { renderReports(); }
+    else if (page === 'reports') { renderReports(); renderSalesChart(); }
 
     lucide.createIcons();
 }
@@ -42,24 +42,21 @@ function hideOrderForm() {
 }
 function addOrder() {
     const customer = document.getElementById('customer-name').value;
-    const items = document.getElementById('order-items').value;
-    const total = document.getElementById('order-total').value;
+    const items = parseInt(document.getElementById('order-items').value);
+    const total = parseFloat(document.getElementById('order-total').value);
     const status = document.getElementById('order-status').value;
 
     if (customer && items && total) {
-        const newOrder = {
+        orders.push({
             id: `ORD-${String(orders.length + 1).padStart(3, '0')}`,
-            customer: customer,
-            items: parseInt(items),
-            total: total.startsWith('E£') ? total : `E£${total}`,
-            status: status,
+            customer, items, total, status,
             date: new Date().toISOString().split('T')[0]
-        };
-        orders.push(newOrder);
+        });
         renderOrders();
         updateOrderStats();
         hideOrderForm();
-        lucide.createIcons();
+        renderReports();
+        renderSalesChart();
     }
 }
 function deleteOrder(orderId) {
@@ -67,6 +64,8 @@ function deleteOrder(orderId) {
         orders = orders.filter(order => order.id !== orderId);
         renderOrders();
         updateOrderStats();
+        renderReports();
+        renderSalesChart();
     }
 }
 function renderOrders() {
@@ -78,7 +77,7 @@ function renderOrders() {
             <td style="color: #86987e; font-weight: 600;">${order.id}</td>
             <td>${order.customer}</td>
             <td>${order.items}</td>
-            <td style="font-weight: 600;">${order.total}</td>
+            <td style="font-weight: 600;">E£${order.total.toFixed(2)}</td>
             <td><span class="status-badge status-${order.status.toLowerCase()}">${order.status}</span></td>
             <td class="text-gray-600">${order.date}</td>
             <td>
@@ -115,12 +114,15 @@ function addUser() {
     const role = document.getElementById('user-role').value;
 
     if (name && email && phone) {
-        const newUser = { id: `USR-${String(users.length + 1).padStart(3, '0')}`, name, email, phone, role, joinDate: new Date().toISOString().split('T')[0], status: 'Active' };
-        users.push(newUser);
+        users.push({
+            id: `USR-${String(users.length + 1).padStart(3, '0')}`,
+            name, email, phone, role,
+            joinDate: new Date().toISOString().split('T')[0],
+            status: 'Active'
+        });
         renderUsers();
         updateUserStats();
         hideUserForm();
-        lucide.createIcons();
     }
 }
 function deleteUser(userId) {
@@ -142,7 +144,12 @@ function renderUsers() {
             <td><span class="role-badge role-${user.role.toLowerCase()}">${user.role}</span></td>
             <td class="text-gray-600">${user.joinDate}</td>
             <td><span class="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">${user.status}</span></td>
-            <td><div class="flex gap-2"><button class="action-btn"><i data-lucide="edit-2" style="color: #d09f30;"></i></button><button class="action-btn" onclick="deleteUser('${user.id}')"><i data-lucide="trash-2" style="color: #d9534f;"></i></button></div></td>
+            <td>
+                <div class="flex gap-2">
+                    <button class="action-btn"><i data-lucide="edit-2" style="color: #d09f30;"></i></button>
+                    <button class="action-btn" onclick="deleteUser('${user.id}')"><i data-lucide="trash-2" style="color: #d9534f;"></i></button>
+                </div>
+            </td>
         `;
         tbody.appendChild(row);
     });
@@ -165,19 +172,16 @@ function hideMenuForm() {
 function addMenuItem() {
     const name = document.getElementById('menu-name').value;
     const category = document.getElementById('menu-category').value;
-    const price = document.getElementById('menu-price').value;
+    const price = parseFloat(document.getElementById('menu-price').value);
     const availability = document.getElementById('menu-availability').value;
 
     if (name && category && price) {
-        const newItem = {
-            id: `MENU-${String(menuItems.length + 1).padStart(3, '0')}`,
-            name, category, price: price.startsWith('E£') ? price : `E£${price}`, availability
-        };
-        menuItems.push(newItem);
+        menuItems.push({ id: `MENU-${String(menuItems.length + 1).padStart(3,'0')}`, name, category, price, availability });
         renderMenu();
         updateMenuStats();
         hideMenuForm();
-        lucide.createIcons();
+        renderReports();
+        renderSalesChart();
     }
 }
 function deleteMenuItem(menuId) {
@@ -185,6 +189,8 @@ function deleteMenuItem(menuId) {
         menuItems = menuItems.filter(item => item.id !== menuId);
         renderMenu();
         updateMenuStats();
+        renderReports();
+        renderSalesChart();
     }
 }
 function renderMenu() {
@@ -195,9 +201,14 @@ function renderMenu() {
         row.innerHTML = `
             <td style="color: #86987e; font-weight: 600;">${item.name}</td>
             <td>${item.category}</td>
-            <td style="font-weight: 600;">${item.price}</td>
+            <td style="font-weight: 600;">E£${item.price.toFixed(2)}</td>
             <td><span class="status-badge status-${item.availability.toLowerCase().replace(/\s/g,'')}">${item.availability}</span></td>
-            <td><div class="flex gap-2"><button class="action-btn"><i data-lucide="edit-2" style="color: #d09f30;"></i></button><button class="action-btn" onclick="deleteMenuItem('${item.id}')"><i data-lucide="trash-2" style="color: #d9534f;"></i></button></div></td>
+            <td>
+                <div class="flex gap-2">
+                    <button class="action-btn"><i data-lucide="edit-2" style="color: #d09f30;"></i></button>
+                    <button class="action-btn" onclick="deleteMenuItem('${item.id}')"><i data-lucide="trash-2" style="color: #d9534f;"></i></button>
+                </div>
+            </td>
         `;
         tbody.appendChild(row);
     });
@@ -213,46 +224,77 @@ function renderReports() {
     const tbody = document.getElementById('reports-table-body');
     tbody.innerHTML = '';
 
-    let sales = 0;
-    let reportOrders = orders.length;
-    let itemCounts = {};
+    let totalSales = 0;
+    let topItem = '-';
+    let itemSales = {};
 
-    orders.forEach(order => {
-        // Update total sales
-        const totalNum = parseFloat(order.total.replace('E£', ''));
-        sales += totalNum;
+    orders.forEach(order => totalSales += order.total);
 
-        // Count items (for top selling)
-        const itemKey = order.customer; // If you want item-based, you'd need order.items array
-        itemCounts[itemKey] = (itemCounts[itemKey] || 0) + order.items;
+    menuItems.forEach(item => {
+        const soldQty = orders.reduce((sum, order) => sum + (order.items || 0), 0); 
+        itemSales[item.name] = soldQty;
     });
 
-    // Find top selling item
-    let topItem = '-';
     let maxSold = 0;
-    for (let key in itemCounts) {
-        if (itemCounts[key] > maxSold) {
-            maxSold = itemCounts[key];
-            topItem = key;
-        }
+    for (let key in itemSales) {
+        if (itemSales[key] > maxSold) { maxSold = itemSales[key]; topItem = key; }
     }
 
-    // Update stat cards
-    document.getElementById('total-sales').textContent = `E£${sales.toFixed(2)}`;
-    document.getElementById('total-report-orders').textContent = reportOrders;
+    document.getElementById('total-sales').textContent = `E£${totalSales.toFixed(2)}`;
+    document.getElementById('total-report-orders').textContent = orders.length;
     document.getElementById('top-item').textContent = topItem;
 
-    // Populate table
     menuItems.forEach(item => {
-        const soldQty = orders.reduce((acc, order) => acc + (order.items || 0), 0); // Simplified
-        const revenue = parseFloat(item.price.replace('E£', '')) * soldQty;
+        const soldQty = itemSales[item.name];
+        const revenue = soldQty * item.price;
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${item.name}</td>
+            <td>${item.category}</td>
             <td>${soldQty}</td>
             <td>E£${revenue.toFixed(2)}</td>
+            <td>E£${(revenue/soldQty || 0).toFixed(2)}</td>
         `;
         tbody.appendChild(row);
+    });
+}
+
+// -------------------- SALES CHART --------------------
+let salesChart; // global variable
+
+function renderSalesChart() {
+    const ctx = document.getElementById('sales-chart').getContext('2d');
+
+    // Prepare data
+    const labels = orders.map(o => o.date);
+    const data = orders.map(o => o.total);
+
+    if (salesChart) salesChart.destroy(); // destroy old chart if exists
+
+    salesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Sales Over Time (E£)',
+                data: data,
+                backgroundColor: 'rgba(134, 152, 126, 0.2)',
+                borderColor: '#86987e',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: true, position: 'top' }
+            },
+            scales: {
+                x: { title: { display: true, text: 'Date' } },
+                y: { title: { display: true, text: 'Sales (E£)' }, beginAtZero: true }
+            }
+        }
     });
 }
 
@@ -262,5 +304,7 @@ document.addEventListener('DOMContentLoaded', function() {
     renderOrders(); updateOrderStats();
     renderUsers(); updateUserStats();
     renderMenu(); updateMenuStats();
+    renderReports();
+    renderSalesChart();
     lucide.createIcons();
 });
